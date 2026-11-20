@@ -1,0 +1,46 @@
+name: security-tests
+
+# Runs on every pull request and on every push to the main branch.
+# No OpenAI key is needed: the benchmark uses the scripted "fully tricked" model.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Unit tests and gate tests
+        run: python -m pytest -v
+
+      - name: Benchmark with the security gate
+        run: >
+          python -m runner.benchmark
+          --model-mode scripted
+          --max-attack-success 0
+          --results-dir ci-results
+
+      - name: Keep the evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-evidence
+          path: ci-results/
+          if-no-files-found: ignore

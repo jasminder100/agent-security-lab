@@ -1,0 +1,34 @@
+# Security policy for the DataOps Pipeline Assistant.
+# Principle: DENY BY DEFAULT. If something is not listed here, it is not allowed.
+
+users:                       # mock users used by the tests
+  alice: viewer
+  bob: engineer
+  carol: admin
+
+roles:
+  viewer:
+    allowed_tools: [get_pipeline_status, read_logs]
+
+  engineer:
+    allowed_tools: [get_pipeline_status, read_logs, get_config]
+
+  admin:
+    allowed_tools: [get_pipeline_status, read_logs, get_config, trigger_deployment]
+    deploy:
+      allowed_environments: [dev, staging]       # admin can deploy here directly
+      approval_required_environments: [prod]     # prod needs human approval
+
+validation:                  # rules for tool arguments
+  pipeline_name_pattern: "^[a-z0-9-]{1,40}$"     # no slashes, spaces, or odd characters
+  known_pipelines: [payments-pipeline, orders-etl, analytics-load]
+  known_environments: [dev, staging, prod]
+
+redaction:                   # applies to everyone, including admins
+  secret_patterns:
+    - "FAKE-KEY-[A-Za-z0-9-]+"
+  replacement: "[REDACTED]"
+
+taint:                       # untrusted content makes high-impact tools need approval
+  untrusted_output_tools: [read_logs]
+  high_impact_tools: [trigger_deployment]

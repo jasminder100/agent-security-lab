@@ -1,0 +1,44 @@
+users:
+  alice: viewer
+  bob: engineer
+  carol: admin
+roles:
+  viewer:
+    allowed_tools:
+    - get_pipeline_status
+    - read_logs
+  engineer:
+    allowed_tools:
+    - get_pipeline_status
+    - read_logs
+    - get_config
+  admin:
+    allowed_tools:
+    - get_pipeline_status
+    - read_logs
+    - get_config
+    - trigger_deployment
+    deploy:
+      allowed_environments:
+      - dev
+      - staging
+      approval_required_environments:
+      - prod
+validation:
+  pipeline_name_pattern: ^[a-z0-9-]{1,40}$
+  known_pipelines:
+  - payments-pipeline
+  - orders-etl
+  - analytics-load
+  known_environments:
+  - dev
+  - staging
+  - prod
+redaction:
+  secret_patterns: []
+  replacement: '[REDACTED]'
+taint:
+  untrusted_output_tools:
+  - read_logs
+  high_impact_tools:
+  - trigger_deployment
