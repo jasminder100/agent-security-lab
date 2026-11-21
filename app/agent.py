@@ -59,7 +59,7 @@ def get_client() -> OpenAI:
 
 
 def run_agent(user: str, question: str, secured: bool = True,
-              enforcer: Enforcer | None = None, client=None) -> dict:
+              enforcer: Enforcer | None = None, client=None, model: str | None = None) -> dict:
     """Run one question through the agent and return the answer plus full evidence."""
     enforcer = enforcer or Enforcer()
     messages = [
@@ -73,7 +73,7 @@ def run_agent(user: str, question: str, secured: bool = True,
 
     for _ in range(MAX_STEPS):
         response = (client or get_client()).chat.completions.create(
-            model=MODEL, messages=messages, tools=TOOL_SCHEMAS, temperature=0,
+            model=model or MODEL, messages=messages, tools=TOOL_SCHEMAS, temperature=0,
         )
         tokens["prompt"] += response.usage.prompt_tokens
         tokens["completion"] += response.usage.completion_tokens

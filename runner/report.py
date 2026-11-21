@@ -290,7 +290,74 @@ def provenance(live, scripted, regs, paths) -> str:
                  f"<td>{esc(m.get('repeats', 1))}</td></tr>")
     return wrap("<table><tr><th>Used for</th><th>Evidence file</th><th>Model</th>"
                 f"<th>Tests</th><th>Repeats</th></tr>{rows}</table>")
+def model_runs(found: list, ref: dict) -> dict:
+    """Newest default-policy live run for each model, using the same number of tests as `ref`."""
+    by_model = {}
+    for p, mode, tag in found:                       # sorted by name, so the newest wins
+        if mode != "live" or tag != "default":
+            continue
+        run = load(p)
+        if run["meta"].get("tests_run") != ref["meta"].get("tests_run"):
+            continue                                 # skips the 2-test smoke runs
+        by_model[run["meta"].get("model", "unknown")] = (p, run)
+    return by_model
 
+
+def comparison_section(runs: dict) -> str:
+    if len(runs) < 2:
+        return ("<p>Only one model has been tested so far. Run the benchmark with "
+                "<code>--model</code> for another model to add a comparison.</p>")
+    models = sorted(runs)
+    modes = ("baseline", "secured")
+    head = "".join(f"<th>{esc(m)}<div class='hint'>{mode}</div></th>" for m in models for mode in modes)
+
+    rows = ""
+    for key, label, hint in METRICS:
+        cells = "".join(f"<td class='num'>{pct(runs[m][1]['metrics'][mode][key])}</td>"
+                        for m in models for mode in modes)
+        rows += f"<tr><td>{esc(label)}<div class='hint'>{esc(hint)}</div></td>{cells}</tr>"
+    for key, label in COUNTS[:2]:
+        cells = "".join(f"<td class='num'>{esc(runs[m][1]['metrics'][mode][key])}</td>"
+                        for m in models for mode in modes)
+        rows += f"<tr><td>{esc(label)}</td>{cells}</tr>"
+    reps = "".join(f"<td class='num' colspan='2'>{esc(runs[m][1]['meta'].get('repeats', 1))}</td>"
+                   for m in models)
+    rows += f"<tr><td>Repeats per test</td>{reps}</tr>"
+    table = wrap(f"<table><tr><th>Metric</th>{head}</tr>{rows}</table>")
+
+    secured = {m: pct(runs[m][1]["metrics"]["secured"]["attack_success_rate"]) for m in models}
+    if len(set(secured.values())) == 1:
+        summary = (f"With the controls on, every model ended with the same attack success rate "
+                   f"({esc(next(iter(secured.values())))}).")
+    else:
+        parts = "; ".join(f"{esc(m)}: {esc(v)}" for m, v in secured.items())
+        summary = f"With the controls on, attack success differed between models. {parts}."
+
+    gs = {m: group(runs[m][1]["records"]) for m in models}
+    diff_rows = ""
+    for tid in sorted(set().union(*[set(g) for g in gs.values()])):
+        sets = {m: {r["classification"] for r in gs[m][tid].get("baseline", [])}
+                for m in models if tid in gs[m]}
+        if len({frozenset(v) for v in sets.values()}) > 1:
+            first = next(gs[m][tid]["baseline"][0] for m in models
+                         if tid in gs[m] and gs[m][tid].get("baseline"))
+            cells = "".join(
+                f"<td>{badges(gs[m][tid]['baseline']) if tid in gs[m] and gs[m][tid].get('baseline') else '-'}</td>"
+                for m in models)
+            diff_rows += (f"<tr><td>{esc(tid)}</td><td>{esc(first['category'])}</td>"
+                          f"<td>{esc(first['prompt'])}</td>{cells}</tr>")
+    if diff_rows:
+        mhead = "".join(f"<th>{esc(m)}</th>" for m in models)
+        diffs = ("<h3>Tests where the models behaved differently without controls</h3>"
+                 + wrap(f"<table><tr><th>Test</th><th>Category</th><th>Prompt</th>{mhead}</tr>"
+                        f"{diff_rows}</table>"))
+    else:
+        diffs = "<p>No test gave a different result between the models without controls.</p>"
+
+    return (f"<p>The same tests were run against each model. {summary}</p>{table}{diffs}"
+            "<p class='hint'>At temperature 0 the repeats mostly confirm consistency, so the counts "
+            "are not independent trials. Only a few models were compared, so do not generalise "
+            "beyond them.</p>")
 
 CSS = """
 :root{--bg:#f5f7f9;--fg:#17212b;--muted:#5a6672;--line:#d3dae1;--paper:#ffffff;
@@ -344,7 +411,7 @@ LIMITS = [
 ]
 
 
-def build(live, scripted, regs, paths) -> str:
+def build(live, scripted, regs, paths, compare) -> str:
     now = datetime.now(timezone.utc).strftime("%d %B %Y, %H:%M UTC")
     items = "".join(f"<li class='{k}'>{t}</li>" for k, t in findings(live, scripted))
     limits = "".join(f"<li>{esc(x)}</li>" for x in LIMITS)
@@ -369,6 +436,9 @@ def build(live, scripted, regs, paths) -> str:
 <h3>Scripted worst case</h3>
 {metrics_table(scripted)}
 {repeat_line(scripted)}
+
+<h2>Model comparison</h2>
+{comparison_section(compare)}
 
 <h2>Findings and recommendations</h2>
 <ul class="findings">{items}</ul>
@@ -397,6 +467,7 @@ def main():
     ap.add_argument("--scripted", help="evidence file from a scripted run")
     ap.add_argument("--regression", nargs="*", help="evidence files from weakened-policy runs")
     ap.add_argument("--out", default=str(OUT))
+    ap.add_argument("--compare", nargs="*", help="live evidence files, one per model, for the comparison")
     args = ap.parse_args()
 
     found = index_results()
@@ -427,9 +498,19 @@ def main():
         tag = (parse_name(p) or ("", Path(run["meta"].get("policy", "unknown")).stem))[1]
         regs.append((tag, run))
         paths.append((f"Regression: {tag}", run, p))
+    if args.compare is not None:
+        compare = {}
+        for p in map(Path, args.compare):
+            run = load(p)
+            compare[run["meta"].get("model", p.stem)] = (p, run)
+    else:
+        compare = model_runs(found, live)
+    for model, (p, run) in sorted(compare.items()):
+        if p.resolve() != live_p.resolve():
+            paths.append((f"Model comparison: {model}", run, p))
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(build(live, scripted, regs, paths))
+    Path(args.out).write_text(build(live, scripted, regs, paths, compare))
     print(f"Report written to: {Path(args.out).relative_to(ROOT) if Path(args.out).is_relative_to(ROOT) else args.out}")
     for label, _, p in paths:
         print(f"  {label}: {p.name}")

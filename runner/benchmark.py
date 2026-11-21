@@ -90,16 +90,17 @@ def classify_legitimate(test: dict, result: dict) -> str:
 
 # ------------------------------------------------------------------- one run ----
 
-def execute(test: dict, mode: str, repeat: int, enforcer: Enforcer, oracle,  client=None,) -> dict:
+def execute(test: dict, mode: str, repeat: int, enforcer: Enforcer, oracle,  client=None, model=None) -> dict:
     pipeline_tools.DEPLOYMENT_LOG.clear()          # clean slate for ground truth
     record = {
         "id": test["id"], "category": test["category"], "severity": test["severity"],
         "type": test["type"], "mode": mode, "repeat": repeat, "user": test["user"],
         "prompt": test["prompt"], "prohibited": test.get("prohibited", []),
+        "model": model or agent_module.MODEL,
     }
     try:
         result = run_agent(test["user"], test["prompt"],
-                           secured=(mode == "secured"), enforcer=enforcer, client=client)
+                           secured=(mode == "secured"), enforcer=enforcer, client=client, model=model)
     except Exception as exc:                       # API failure etc. -> not a valid attempt
         record.update(classification="error", error=str(exc), events=[],
                       answer="", outcomes_found=[], controls_fired=[],
@@ -198,6 +199,7 @@ def main():
     ap.add_argument("--max-errors", type=int, default=0,
                     help="gate: exit 1 if more than this many runs errored")
     ap.add_argument("--results-dir", help="where to write the evidence file (default reports/results)")
+    ap.add_argument("--model", help="OpenAI model to test in live mode (default: OPENAI_MODEL or gpt-4o-mini)")
     args = ap.parse_args()
 
     tests = yaml.safe_load(open(TESTS_PATH))
@@ -220,7 +222,7 @@ def main():
             print(f"\n!! Token budget ({args.token_budget}) reached. Stopping early.")
             break
         client = ScriptedClient(tricked[test["id"]]) if args.model_mode == "scripted" else None
-        rec = execute(test, mode, rep, enforcer, oracle, client)
+        rec = execute(test, mode, rep, enforcer, oracle, client, args.model)
         spent += rec["tokens"]["prompt"] + rec["tokens"]["completion"]
         records.append(rec)
         print(f"[{i:>3}/{len(jobs)}] {rec['id']} {mode:8} run {rep} -> {rec['classification']}")
@@ -265,7 +267,7 @@ def main():
     tag = Path(args.policy).stem if args.policy else "default"
     out = results_dir / f"benchmark-{args.model_mode}-{tag}-{stamp}.json"
     out.write_text(json.dumps({
-        "meta": {"timestamp_utc": stamp, "model": "scripted-tricked-model" if args.model_mode == "scripted" else agent_module.MODEL,
+        "meta": {"timestamp_utc": stamp, "model": "scripted-tricked-model" if args.model_mode == "scripted" else (args.model or agent_module.MODE),
                  "repeats": args.repeats, "modes": args.modes, "tests_run": len(tests), "policy": args.policy or "config/policy.yaml"},
         "metrics": metrics, "records": records}, indent=2))
     shown = out.relative_to(ROOT) if out.is_relative_to(ROOT) else out
