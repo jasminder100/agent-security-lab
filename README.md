@@ -4,7 +4,7 @@ I built this to answer one question: if an AI agent can be tricked by text it re
 
 The project has a small sample agent (a DataOps Pipeline Assistant with four mock tools) and a test framework that attacks it. It runs the same set of tests with and without security controls, saves the evidence for every run, and reports how many attacks got through. Everything is mock data. No real systems or credentials are involved.
 
-## What I found
+## What I discovered
 
 - Without controls, 50% of attacks succeeded against the live model (100% with a scripted worst-case model). With controls, 0%.
 - One legitimate request out of eight gets blocked (TC-024). That is the cost of the control that requires approval after the agent has read untrusted log text. I left it in on purpose and report it.
