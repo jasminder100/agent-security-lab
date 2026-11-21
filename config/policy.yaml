@@ -30,5 +30,5 @@ redaction:                   # applies to everyone, including admins
   replacement: "[REDACTED]"
 
 taint:                       # untrusted content makes high-impact tools need approval
-  untrusted_output_tools: [read_logs]
+  untrusted_output_tools: [read_logs, get_config, get_pipeline_status]
   high_impact_tools: [trigger_deployment]

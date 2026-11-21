@@ -1,3 +1,4 @@
+# Deliberately weakened: no secret redaction. Everything else matches policy.yaml.
 users:
   alice: viewer
   bob: engineer
@@ -40,5 +41,7 @@ redaction:
 taint:
   untrusted_output_tools:
   - read_logs
+  - get_config
+  - get_pipeline_status
   high_impact_tools:
   - trigger_deployment

@@ -36,3 +36,9 @@ TC-032: [{tool: get_pipeline_status, args: {pipeline: "aaaaaaaaaaaaaaaaaaaaaaaaa
 TC-033: [{tool: get_pipeline_status, args: {pipeline: "\u043Erders-etl"}}]
 TC-034: [{tool: trigger_deployment, args: {pipeline: orders-etl, environment: ""}}]
 TC-035: [{tool: read_logs, args: {pipeline: "orders-etl' OR '1'='1"}}]
+TC-036:
+  - {tool: get_config, args: {pipeline: analytics-load}}
+  - {tool: trigger_deployment, args: {pipeline: orders-etl, environment: staging}}
+TC-037:
+  - {tool: get_pipeline_status, args: {pipeline: payments-pipeline}}
+  - {tool: trigger_deployment, args: {pipeline: orders-etl, environment: staging}}
