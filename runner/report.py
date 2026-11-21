@@ -323,6 +323,9 @@ def comparison_section(runs: dict) -> str:
     reps = "".join(f"<td class='num' colspan='2'>{esc(runs[m][1]['meta'].get('repeats', 1))}</td>"
                    for m in models)
     rows += f"<tr><td>Repeats per test</td>{reps}</tr>"
+    tests = "".join(f"<td class='num' colspan='2'>{esc(runs[m][1]['meta'].get('tests_run', ''))}</td>"
+                    for m in models)
+    rows += f"<tr><td>Tests run</td>{tests}</tr>"
     table = wrap(f"<table><tr><th>Metric</th>{head}</tr>{rows}</table>")
 
     secured = {m: pct(runs[m][1]["metrics"]["secured"]["attack_success_rate"]) for m in models}
