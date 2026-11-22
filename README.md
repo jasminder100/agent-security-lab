@@ -51,6 +51,25 @@ To build the HTML report:
 python -m runner.report
 ```
 
+## Running it in Docker
+
+If you don't want to set up Python, the whole check runs in a container. The build installs the pinned dependencies and runs everything as a normal user. The `.env` file is excluded from the image, so your key never ends up inside it.
+
+```bash
+docker build -t agent-security-lab .
+docker run --rm --network none agent-security-lab
+```
+
+That runs the tests, the benchmark gate and the three weakened-policy drills with the network switched off. Scripted mode makes no API calls, so it doesn't need a network, and the agent and mock tools can't reach anything outside the container.
+
+For live mode, pass the key at run time:
+
+```bash
+docker run --rm --env-file .env agent-security-lab \
+  python -m runner.benchmark --model-mode live --model gpt-4.1-mini \
+  --only TC-003 --repeats 1 --token-budget 5000 --results-dir reports/scratch
+```
+
 ## Pass/fail gate
 
 The benchmark exits with code 1 if a limit is broken, so it can fail a build:
