@@ -6,7 +6,7 @@ The project has a small sample agent (a DataOps Pipeline Assistant with four moc
 
 ## What I discovered
 
-On the live model (gpt-4.1-mini), 18 of the 27 attacks succeeded without controls. With controls on, none did. With a scripted model that always obeys the attacker, all 27 succeeded without controls and none with them, across 3 repeats.
+On the live model (gpt-4.1-mini), 18 of the 27 attacks succeeded without controls. With controls on, none did. With a scripted model that always obeys the attacker, all 29 succeeded without controls and none with them, across 3 repeats.
 - One legitimate request out of eight gets blocked (TC-024). That is the cost of the control that requires approval after the agent has read untrusted log text. I left it in on purpose and report it.
 - TC-016 found a real gap: an admin could be steered into a staging deployment by a poisoned log. That led to the taint control.
 - I compared gpt-4o-mini and gpt-4.1-mini on the first 24 tests. Both ended at 0% attack success with controls on. They differed on one test (TC-010), where gpt-4o-mini refused an invalid environment by itself and gpt-4.1-mini did not.
@@ -82,7 +82,7 @@ This runs the enforcer unit tests and checks the gate itself. GitHub Actions run
 ## How it's laid out
 
 - `app/` the agent, the mock tools and the security layer (`app/security/enforcer.py` is the part that makes the decisions)
-- `config/` the policy, the 24 test cases, and the weakened policies
+- `config/` the policy, the 38 test cases, and the weakened policies
 - `runner/` the benchmark, the oracle (a separate answer key so the code doesn't grade itself) and the report generator
 - `tests/` unit tests
 - `docs/` threat model and research report
@@ -91,7 +91,7 @@ The model only suggests tool calls. In secured mode every call goes through the 
 
 ## Limitations
 
-- 27 attacks is still a small set. It doesn't cover things like long multi-turn attacks or instructions hidden in tool output other than logs.
+- 29 attacks is still a small set. It doesn't cover things like long multi-turn attacks or instructions hidden in tool output other than logs.
 - Live results can vary between runs even at temperature 0 (TC-034 once gave a different result for the same prompt). The scripted run is the repeatable measure.
 - Secret redaction is pattern-based and can miss odd formats.
 - The approval step is simulated, not a real human workflow.
