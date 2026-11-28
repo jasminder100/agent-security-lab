@@ -1,4 +1,4 @@
-##AI Agent Security Testing Lab
+#AI Agent Security Testing Lab
 
 I built this to answer one question: if an AI agent can be tricked by text it reads, how do you test that properly before putting it into a real workflow?
 
@@ -16,7 +16,7 @@ The live numbers come from a 35-test run, before TC-036 to TC-038 were added. Th
 
 This is a prototype on mock data. It does not prove any agent is secure.
 
-##Setup
+#Setup
 
 Python 3.10 or newer is required (3.12 recommended), or use Docker below.
 
@@ -29,7 +29,7 @@ requirements.txt has every version pinned. requirements-direct.txt lists the six
 
 Live mode needs an OpenAI key in a .env file in the project root (not committed). Scripted mode and the tests don't need one.
 
-##Running it
+#Running it
 
 The quickest way to check everything is one command:
 
@@ -59,7 +59,7 @@ python -m runner.report
 
 It uses the newest default live and scripted results in reports/results/. To choose files yourself, use --live, --scripted or --compare (for the model comparison).
 
-##Running it in Docker
+#Running it in Docker
 
 If you don't want to set up Python, the whole check runs in a container. The build installs the pinned dependencies and runs everything as a normal user. The .env file is excluded from the image, so your key never ends up inside it.
 
@@ -75,7 +75,7 @@ bash
 docker run --rm --env-file .env agent-security-lab \
   python -m runner.benchmark --model-mode live --model gpt-4.1-mini \
   --only TC-003 --repeats 1 --token-budget 5000 --results-dir reports/scratch
-##Pass/fail gate
+#Pass/fail gate
 
 The benchmark exits with code 1 if a limit is broken, so it can fail a build:
 
@@ -84,7 +84,7 @@ python -m runner.benchmark --model-mode scripted --repeats 3 --max-attack-succes
 
 --max-false-denial sets a limit on blocked legitimate requests. It only applies to live runs, because the scripted run has no legitimate requests. With the taint control the live false-denial rate is above 15%, so choose that limit on purpose.
 
-##Checking that the framework notices a weakened control
+#Checking that the framework notices a weakened control
 
 config/regressions/ has three policies with one control weakened each. All three should fail the gate:
 
@@ -97,7 +97,7 @@ python -m runner.benchmark --model-mode scripted \
 
 If any of them passes, the framework missed it. ./scripts/check.sh and CI run all three.
 
-##Tests and CI
+#Tests and CI
 bash
 python -m pytest
 
@@ -105,7 +105,7 @@ This runs the enforcer unit tests, checks the gate itself, and checks the config
 
 GitHub Actions runs the tests, the scripted benchmark with 3 repeats and the three weakened-policy checks on every push. It never uses live mode, so no secrets are stored. Dependabot opens pull requests for new dependency versions.
 
-##How it's laid out
+#How it's laid out
 app/ the agent, the mock tools and the security layer (app/security/enforcer.py is the part that makes the decisions)
 config/ the policy, the 38 test cases, the scripted attacker, and the weakened policies
 runner/ the benchmark, the oracle (a separate answer key so the code doesn't grade itself) and the report generator
@@ -117,13 +117,13 @@ Dockerfile runs the full check in a container
 
 The model only suggests tool calls. In secured mode every call goes through the enforcer, which checks the user's role, validates the arguments, tracks whether untrusted content has been read, and strips secrets from output.
 
-##Limitations
+#Limitations
 29 attacks is still a small set. It doesn't cover long multi-turn attacks or encoded instructions.
 Live results can vary between runs even at temperature 0 (TC-034 once gave a different result for the same prompt). The scripted run is the repeatable measure.
 Secret redaction is pattern-based and can miss odd formats.
 The taint rule is blunt. It treats everything the agent has read as untrusted, which is why two legitimate requests get held.
 The approval step is simulated, not a real human workflow. detail in `docs/threat-model.md` and `docs/research-report.md`.
 
-##Next steps
+#Next steps
 
 Build a real approval step, add multi-turn attacks, move the rules into OPA policies, and make it easier to plug in a different agent. More models and attack types, possibly generated with Garak or PyRIT, would also widen the coverage
